@@ -1,0 +1,113 @@
+---
+title: "HW3"
+author: "Charlotte Li"
+date: "5/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("~/Documents/nyu/1stGradSpring/Generalized Linear Model/dataset")
+#setwd("~/Desktop/Generalized Linear Model/dataset")
+math<-read.csv("math.csv")
+attach(math)
+head(math)
+```
+
+# Q1 
+Total number of schools and average students in each school
+```{r}
+#number of schools
+length(unique(school))
+##avg students in each school
+nrow(math)/length(unique(school))
+```
+# Q2. Calculate the math proficiency rate (i.e. the percentage of math proficient students) in each school, and answer the following TRUE/FALSE question. Half of the schools have math proficiency rate lower than 41.59%.
+```{r}
+prof<-tapply(math$mathlev,math$school,sum)
+stu.per.sch<-table(math$school)
+table(prof/stu.per.sch<0.4159)/length(table(math$school))
+## median
+median(prof/stu.per.sch)
+```
+True
+
+# Q3 Student level predictor 
+Minoirty, Sex, ses, pracad
+
+# Q4 School level predictor 
+size, disclim, meanses, sector,pracad
+
+# Q5 Recode
+```{r}
+library(plyr)
+math$minority2 <- revalue(math$minority, c("Yes"="1", "No"="0"))
+math$female <- revalue(math$sex, c("Female"="1", "Male"="0"))
+math$public2 <- revalue(math$sector, c("Public"="1", "Catholic"="0"))
+```
+
+# Q6 Run a logistic regression including only student level predictors
+```{r}
+library(lme4)
+Q6<-glm(mathlev~minority2+female+ses,math,family=binomial(logit))
+summary(Q6)
+```
+
+# Q7 Suggest at least one way to improve the logistic regression you run in question 6 that will help us better understand the effects of various factors on students' math proficiency. Briefly explain why.
+Modeling the cluster effects via random effect coefficients
+A regression model for clustered data that include both the fixed effect and random is called mixed effect model. Multilevel models, random effect models, random coefficients models, hierarchical models.
+
+# Q8 Run a random effect logistic segression with an additional school level random effect 
+```{r}
+Q8<-glmer(mathlev~minority2+female+ses+(1|school),math,family=binomial(logit))
+summary(Q8)
+```
+
+# Q9 Variance of random effect
+0.2834 
+
+# Q10 Explain variance
+The variance of the random effect explains the variability between schools.The random effect is 0.2834 suggesting it explains 0.2834 of the variance in log odds of students' math proficiency level. 
+
+# Q11 ICC
+```{r}
+0.2834 /(0.2834 +(3.1415926)^2/3)
+```
+
+# Q12
+```{r}
+exp(Q6$coefficients)
+exp(Q8@beta)
+```
+
+After exponentiate the coefficients from Q6 and Q8, the exp(betas) did not differ too much. If there is a big random effect, then the difference would be big between the two approaches. Yet, the difference is rather small. ICC is only 0.08, meaning only 8% of the variation is in school level random effect, and that is pretty small. 
+
+#Q13 The random effect logistic regression model in question 8 has smaller AIC value than the logistic regression model in question 6.
+True
+
+# Q14 Expand Q8 model by including school level predictors 
+```{r}
+Q14<-glmer(mathlev~minority2+female+ses+size+public2+pracad+disclim+meanses+(1|school),math,family=binomial(logit))
+summary(Q14)
+```
+
+Significant variables: minoirty, female, ses, size,pracad
+
+## 15 The variance of the random effect in Q14 is smaller than in Q8
+true
+
+
+
+
+
+
+
+
+
+
+
+
+

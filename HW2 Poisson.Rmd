@@ -1,0 +1,179 @@
+---
+title: "GLM_HW2_Poisson"
+author: "Charlotte Li"
+date: "4/29/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Part 1 of 1 - Models for Count Data
+In part 1 you will analyze data on cigarette smoking (smoke.csv)
+The variable 
+"cigs" (the number of cigarettes smoked per day) is the outcome variable. We will consider the following explanatory variables:
+"lcigpric": the log of the price of cigarettes in the state (cents/pack).
+"lincome": the log of income (in $)
+"restauran": 1 if there are restaurant smoking restrictions, 0 otherwise 
+"white": white=1 "nonwhite"=0
+"educ": years of education
+"age" and "agesq": age and age squared.
+```{r}
+library(pscl)
+setwd("~/Documents/nyu/1stGradSpring/Generalized Linear Model/dataset")
+smoke<-read.csv("smoke.csv")
+attach(smoke)
+```
+
+# 1. What's the length of exposure for each observation in this dataset
+  One day 
+
+# 2. Fit a Poisson regression using all of the following variables: lcigpric, lincome, restauran, white, educ, age and agesq. Which one of the following predictors significantly decrease the risk of cigarette smoking?
+```{r}
+summary(m1<-glm(cigs~lcigpric+lincome+restaurn+white+educ+age+agesq,family="poisson",data=smoke))
+```
+restauran and educ
+
+# 3. In one sentence,explain the effect of age on the risk of cigarette smoking.
+age has significantly positive impact on log(lam)
+we expect to see more risk of cigarette smoking for those who are older. e^0.1143=1.12. on average, the risk of cigareet smoking for older subjects is 1.12 times of younger subjects. 
+
+# 4. Based on the previous model, report the coefficient for restaurant restrictions (in terms of relative risk ratio) and compute a 95% confidence interval for the effect of such restrictions on mean number of cigarettes smoked. [hint: you can use ‘mean +-2*SE formula to construct CI] The risk ratio associated with restaurant restrictions is -0.3636, the lower bound 95% CI is -0.4149569 and the upper bound -0.3122431
+```{r}
+exp(-0.3636)
+exp(-0.3636+2*0.03122)
+exp(-0.3636-2*0.03122)
+```
+
+
+# 5 In one sentence, interpret the coefficient (in terms of relative risk ratio) for restaurant restrictions
+restaurants with restrictions have significantly negative impact on the risk of cigarette smoking, the log (lam) which is 0.36 less than that of restaurants without restrictions. 
+
+# 6.Predict the mean number of cigarettes smoked (also the rate of occurrence) for each individual per day based on this model. And further compute the predicted probabilities of smoking zero cigarettes based on the rate of occurrence using a Poisson probability distribution function. On average, the model predicts % of subjects who smoke 0 cigarettes a day
+```{r}
+## predict lambda for each observation 
+pred1<-predict(m1) ##=log(lam)
+## exponentiate pred1 to get lam
+lambda1<-exp(pred1)
+## get mean of Y=0 which is -lam
+mean(exp(-lambda1))
+```
+
+# 7 Tabulate the outcome variable, actually what percentage of subjects smoker 0 cigarette?
+```{r}
+table(smoke$cigs)/nrow(smoke)
+```
+61.586%
+
+# 8 Briefly comment on the possible issues of this poisson regression model.
+There are over 60% of the people who don't smoke while the model predicts only less than 1% non-smokers. There could be a problem of zero-inflation (namely, some people are not at risk of smoking), or there could exist substantial individual variation after accounting for the observed covariates.
+
+# 9 T/F
+In this data, the variance is close to 20 times the mean. 
+T
+Overdispersion: after fitting model, poisson as a desired model
+$Yi~Poisson (\lambda)$
+$log(lambda_i)=X_ibeta$
+--Overdispersion: scale up SE proportionally by a factor of sqrt(18)=
+--14752/799=18 deviance resi/df=var
+
+#10 (continued from Q 9) This suggests that the standard errors in the Poisson Regression is severely 1 Points underestimated. To correct this problem, approximately, standard errors should be multiplied by a factor of 4.
+
+SE=sqrt(20)
+T
+
+# 11 After correcting the standard errors, the log income is still a significant predictor to cigarette smoking. (hint: In R, use quasipoisson distribution; In Stata, use scale(x2) option
+```{r}
+summary(glm(cigs~lcigpric+lincome+restaurn+white+educ+age+agesq,family="quasipoisson",data=smoke))
+```
+False
+
+# Q12 Fit a negative binomial model using the same set of predictors. Explain the key rationale behind this model. [Note if you use R, you will encounter a technical problem. The R glm.nb function has an issue estimating the nb regression for this data. See attached explanation and a patch so you can complete questions 12-15, as well as the question on AIC and BIC)
+```{r}
+library(MASS)
+library(foreign)
+neg.bin.model <- glm(cigs~lcigpric+lincome+restaurn+white+educ+age+agesq, data = smoke,family = negative.binomial(theta= 0.1357))
+summary(neg.bin.model)
+```
+restaurant restrictions, education, age and age squared are significantly associated with risk of cigrette smoking.
+The negative-binomial model allows the variance of the distribution to be bigger than the mean (which is useful in cases of over-dispersion). It does this by adding an individual-level factor, so that each individual has a different rate of occurrence. We can’t estimate the individual-level factor (since we only have one observation per individual), but we can estimate from our sample the variance of the individual level factors, which is denoted alpha; this variance, along with lambda, are the two parameters of the negative binomial distribution.
+
+# 13 Compare with the Poisson Regression, in the neg. binomial model, we observe: 
+--the direction of the coefficients remain the same 
+--the standard errors are much larger
+
+# 14 In this negative binomial model, the variance of individual multiplying factors is 7.36. If there is no individual heterogeneity, we should expect the variance to be close to 0
+
+# 15 Predict the percent of respondents who smoke zero cigarettes per day.The percent of respondents who smoke zero cigarettes per day is 
+```{r}
+## predict lambda for each observation 
+pred.nb<-predict(neg.bin.model,data=smoke,type = "response")
+alpha<-1/7.369
+pn0<-(alpha/(pred.nb+alpha))^alpha
+zero<-sum(pn0)
+p.zero<-100*zero/dim(smoke)[1]
+```
+
+# 16 Now fit a zero-inflated Poisson Model. First briefly explain the rationale behind this model.
+(For R: you will notice that the fit of zeroinfl is also a little bit wierd, with warning of covariance matrix not estimated correctly. To improve the stability of model fitting, you can try the following:
+instead of using age and agesq, try mean centered age (age-mean(age)) and its squared term in the model. This way the coefficients of other covariates are the same, except the coefficient of centered age and its squared are different --but they are still fitting the same quadratic relationship!)
+
+```{r}
+library(pscl)
+age.center=age-mean(age)
+age.center.sq<-age.center*age.center
+zip1<-zeroinfl(cigs~lcigpric+lincome+restaurn+white+educ+age.center+age.center.sq|1, data = smoke)
+summary(zip1)
+```
+
+Sometimes, mean of the count is under/over estimated. ZIP allows assumption of not all people smoke, those intend to smoke may not smoke as well. In ZIP model(who don't have intention to smoke), no explanatory variable is used. it is a binomial with logit link. log odds of smoke over not smoke is 0.427. For each subject ,there is a common probability of falling into cig=0: P=exp(0.472)/(1+exp(0.472))=0.605
+
+# 17 Fit a zero-inflated poisson model using the same set of predictors for the Poisson part of the model, while only include the intercept for the zero-inflation part (the logistic regression part). This model estimate percent of subjects who are not at risk of smoking.
+```{r}
+#prob of being non-smoking 0.615
+exp(0.47202)/(1+exp(0.47202))
+#intercept for the inflate part is 0.47,also the log odds of non-smoking
+```
+
+#18 Now include the same set of explanatory variables into the inflate part of the model. Which variables significantly predict whether one is at risk of smoking at all.
+
+```{r}
+summary(zip3<-zeroinfl(cigs~lcigpric+lincome+restaurn+white+educ+age+agesq|lcigpric+lincome+restaurn+white+educ+age.center+age.center.sq,data = smoke))
+```
+#19 Based on the zero-inflated model in Q19, predict the proportion of respondents who smoke zero cigarettes. The percentage of respondents who smoke zero cigarettes is    %
+```{r}
+## predict the probability of Y=y
+predict.zip3<-predict(zip3,type = "prob")
+## predict the prob of belonging to never smoke
+zero.zip3<-predict(zip3,type = "zero")
+## marginally how many 0 predicted 
+sum(predict.zip3[,1])/nrow(predict.zip3)
+## compare to observed 0s
+sum(smoke$cigs==0)/nrow(smoke)
+```
+
+# 20 Based on the AIC and BIC criterion, which model appears to fit the data the best?
+```{r}
+# possion
+AIC(m1)
+# neg. bi
+AIC(neg.bin.model)
+# zip with no predictors
+AIC(zip1)
+# zip with full set of predictor
+AIC(zip3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,165 @@
+---
+title: "GLM HW1"
+author: "Charlotte Li"
+date: "8/18/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I Binary Outcome 
+```{r}
+setwd("~/Documents/nyu/1stGradSpring/Generalized Linear Model/dataset")
+dat<-read.csv("RELIGION.csv")
+dat$relschol <- as.numeric(dat$relschol=="yes")
+dat$white <- as.numeric(dat$race=="white")
+```
+## 1
+```{R}
+## probability of attending religious school 
+sum(dat$relschol==1)/sum(nrow(dat))
+## compute the corresponding odds 
+sum(dat$relschol==1)/sum(dat$relschol==0)
+```
+## 2
+```{R}
+table(dat$white,dat$relschol)
+## probability of non-white attend religious school
+26/102
+## probability of white attend religious school
+54/524
+```
+
+## 3
+```{r}
+# odds that non-white students attend religious school
+26/76
+# odds that white students attend religious school
+54/470
+```
+## 4
+the odds ratio that compares the odds of white versus non-white attend religious school
+```{r}
+(54/470)/(26/76)
+```
+## 5 
+Build a logistic regression to predict "relschol"using variables "white", "attend" and "age", treating the latter two as continuous variables. Report the odds ratio for variable "white"
+```{r}
+summary(glm(formula=relschol~as.factor(white)+attend+age,data=dat,family="binomial"))
+exp(-0.94)
+```
+
+## 6 
+In one short sentence, explain the meaning of the odds ratio for "white" you reported in question 5: 
+--The odds ratio for white students of attending religious school is 0.39 times the odds of non white students attending religious school, holding other variables constant.
+
+## 7 
+Report the adjusted odds ratio comparing Non-white students versus White students based one the results from the model in question 5.
+```{r}
+1/exp(-0.94)
+```
+
+## 8 
+Further extend the model in previous question by including a quadratic term of age, "agesq". Run a logistic regression now with predictors: white, attend, age and agesq. Choose the answer that is best informed by the results of this model (as compared with the previous one)
+```{r}
+dat$agesq<-dat$age*dat$age
+summary(model8<-glm(formula=relschol~as.factor(white)+attend+age+agesq,data=dat,family="binomial"))
+```
+ The age of respondent has a quadratic (curvilinear) relationship with the log odds of attending religious school.
+ 
+## 9
+```{R}
+res <- glm(relschol~as.factor(white+attend) + age +agesq, data=dat,family=binomial(link="logit"))
+newdat <- matrix(0, 2,4)
+newdat[1,]<-c(0, 5, 45, 45^2)
+newdat[2,]<-c(1,5,45,45^2)
+newdat<-as.data.frame(newdat)
+names(newdat)<-c("white","attend","age", "agesq")
+pp <- predict(model8, newdata=newdat, type="response", se.fit=TRUE)
+pp
+```
+For those who attend religious services five days per month (attend=5) and age at 45, what is the predicted probability of having attended a religious school for non-white students:  0.384  with a standard error of  0.069 ; and the predicted probability for white students:  0.192 with a standard error of  0.030
+
+## 10
+ABCDEF
+
+## 11 
+Run another model, include white, attend and age and agesq, treating "attend" as categorical variable. Based on AIC and BIC, which model fits the data better? Note a smaller AIC indicates better model fit considering the number of predictors used (model degrees of freedom) [hint: in R use AIC(res) to pull out the AIC value of a model. In Stata, use glm version AIC and BIC will be shown in the output]
+```{r}
+summary(model11<-glm(relschol~white+factor(attend)+age+agesq,data=dat,family=binomial(link="logit")))
+```
+A. attend as continuous variable 
+
+## 12
+Run a probit regression predicting the probability attending religious school using white, attend (as continuous variable), age and agesq.
+In one sentence, explain the meaning of the coefficient for "attend" in this probit model.
+```{r}
+summary(model12<-glm(relschol~white+attend+age+agesq,data=dat,family=binomial(link="probit")))
+```
+The latent variable of attending religious school is on average 0.25 standard deviation higher for those attending religious services 5 days per month than for those who do not attend
+
+# Part II  Multinomial Regression
+```{r}
+setwd("~/Documents/nyu/1stGradSpring/Generalized Linear Model/dataset")
+drug<-read.csv("DRUGTEST.csv")
+head(drug)
+```
+## 1 
+Reference Group: No Testing 
+
+## 2 
+BFCDAE
+
+## 3
+Based on the table above, we know that relative to no testing option, marijuana users are less likely to take the drug test (any group) than the non-users.-T
+
+## 4 
+```{r}
+library(nnet)
+drug$mjuser2<-relevel(factor(drug$mjuser),ref = "no")
+drug$gender2<-relevel(factor(drug$gender),ref = "female")
+drug$income2<-relevel(factor(drug$income),ref="low")
+drug$south2<-relevel(factor(drug$south),ref = "no")
+drug$construc2<-relevel(factor(drug$construc),ref="no")
+drug$drugtest2<-relevel(factor(drug$drugtest),ref = "no testing program")
+multi.fit<-multinom(drugtest2~mjuser2+age+educate+gender2+income2+south2+construc2,data=drug)
+summary(multi.fit)
+```
+
+## 5
+Based on the model from previous question, predict the probabilities of having each of the four drug testing outcomes for a male who is 30 years old, has 12 year of education, low income, comes from south, and works in the construction who has used marijuana in part year. 
+```{r}
+newdrug <- matrix(c("yes","male","low","yes","yes",30,12),nrow = 1,ncol = 7,byrow = T)
+newdrug<-as.data.frame(newdrug)
+names(newdrug)<-c("mjuser2","gender2","income2","south2","construc2","age","educate")
+newdrug$age<-as.numeric(as.character(newdrug$age))
+newdrug$educate<-as.numeric(as.character(newdrug$educate))
+predict(multi.fit,newdrug[1,],"probs")
+sum(predict(multi.fit,newdrug[1,],"probs"))
+predict(multi.fit,newdrug[1,],"probs")
+```
+
+For this individual, 
+
+the probability of no testing is  0.830
+
+the probability of pre-employment testing & random testing is  0.098
+the probability of random testing is  0.0155
+
+the probability of pre-employment testing is  0.057
+
+
+
+
+
+
+
+
+
+
+
+
+
+
